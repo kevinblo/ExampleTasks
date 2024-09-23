@@ -9,6 +9,7 @@
             width: 70%;
             border-collapse: collapse;
             margin: auto;
+            margin-bottom: 20px;
         }
 
         th, td {
@@ -40,13 +41,24 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
         }
+
+        .block {
+            width: 20%;
+            margin-left: auto;
+            margin-right: auto;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
 
-<h1>Список задач</h1>
 
-<input type="text" id="search" placeholder="Поиск по заголовку...">
+<div class="block">
+    <h1>Список задач</h1>
+    <label for="search">Поиск задач: </label>
+    <input type="text" id="search" placeholder="Поиск по заголовку...">
+</div>
+
 <table id="taskTable">
     <thead>
     <tr>
