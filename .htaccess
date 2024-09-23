@@ -1,0 +1,4 @@
+RewriteEngine on
+
+RewriteRule ^api/v1/task$  api.php
+RewriteRule ^api/v1/task/([0-9]+)$  api.php

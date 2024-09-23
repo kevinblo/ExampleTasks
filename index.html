@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Список задач</title>
+    <style>
+        table {
+            width: 70%;
+            border-collapse: collapse;
+            margin: auto;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        #modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background-color: white;
+            border: 1px solid #ccc;
+        }
+
+        #modalOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+<h1>Список задач</h1>
+
+<input type="text" id="search" placeholder="Поиск по заголовку...">
+<table id="taskTable">
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Заголовок</th>
+        <th>Дата выполнения</th>
+    </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div id="pagination"></div>
+
+<div id="modalOverlay"></div>
+<div id="modal"></div>
+
+<script>
+    const tasksPerPage = 10;
+    let currentPage = 1;
+    let cachedTasks = {}; // Объект для кэширования задач
+    let cachedTaskList = null; // Для хранения списка задач
+
+    document.addEventListener('DOMContentLoaded', function () {
+        loadTasks();
+
+        document.getElementById('search').addEventListener('input', function () {
+            loadTasks();
+        });
+    });
+
+    function loadTasks(page = 1) {
+        const searchTerm = document.getElementById('search').value;
+
+        // Проверяем, есть ли список задач в кэше
+        if (cachedTaskList) {
+            const filteredTasks = cachedTaskList.filter(task => task.title.includes(searchTerm));
+            displayTasks(filteredTasks, page);
+            setupPagination(filteredTasks.length, page);
+        } else {
+            // Если нет кэша, запрашиваем задачи с сервера
+            fetch(`/api/v1/task`)
+                .then(response => response.json())
+                .then(data => {
+                    cachedTaskList = data;  // Сохраняем данные в кэш
+                    const filteredTasks = cachedTaskList.filter(task => task.title.includes(searchTerm));
+                    displayTasks(filteredTasks, page);
+                    setupPagination(filteredTasks.length, page);
+                });
+        }
+    }
+
+    function displayTasks(tasks, page) {
+        const tableBody = document.querySelector('#taskTable tbody');
+        tableBody.innerHTML = '';
+
+        const start = (page - 1) * tasksPerPage;
+        const end = start + tasksPerPage;
+
+        tasks.slice(start, end).forEach(task => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+            <td>${task.id}</td>
+            <td><a href="#" onclick="showTask(${task.id}); return false;">${task.title}</a></td>
+            <td>${new Date(task.date).toLocaleString()}</td>
+        `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function setupPagination(totalTasks, currentPage) {
+        const pagination = document.getElementById('pagination');
+        pagination.innerHTML = '';
+
+        const totalPages = Math.ceil(totalTasks / tasksPerPage);
+
+        // Кнопка "Назад"
+        const prevButton = document.createElement('button');
+        prevButton.textContent = 'Назад';
+        prevButton.onclick = function () {
+            if (currentPage > 1) {
+                loadTasks(currentPage - 1);
+            }
+        };
+        if (currentPage === 1) {
+            prevButton.disabled = true;
+        }
+        pagination.appendChild(prevButton);
+
+        // Кнопки для каждой страницы
+        for (let i = 1; i <= totalPages; i++) {
+            const pageLink = document.createElement('button');
+            pageLink.href = '#';
+            pageLink.textContent = i;
+            pageLink.onclick = function () {
+                loadTasks(i);
+                return false;
+            };
+            if (i === currentPage) {
+                pageLink.style.fontWeight = 'bold';
+            }
+            pagination.appendChild(pageLink);
+        }
+
+        // Кнопка "Вперед"
+        const nextButton = document.createElement('button');
+        nextButton.textContent = 'Вперед';
+        nextButton.onclick = function () {
+            if (currentPage < totalPages) {
+                loadTasks(currentPage + 1);
+            }
+        };
+        if (currentPage === totalPages) {
+            nextButton.disabled = true;
+        }
+        pagination.appendChild(nextButton);
+    }
+
+    function showTask(id) {
+        // Проверяем, есть ли информация о задаче в кэше
+        if (cachedTasks[id]) {
+            displayModal(cachedTasks[id]);  // Если задача в кэше, показываем модальное окно
+        } else {
+            // Если задачи нет в кэше, запрашиваем её с сервера
+            fetch(`/api/v1/task/${id}`)
+                .then(response => response.json())
+                .then(task => {
+                    cachedTasks[id] = task;  // Кэшируем полученную задачу
+                    displayModal(task);  // Показываем задачу в модальном окне
+                });
+        }
+    }
+
+    function displayModal(task) {
+        const modal = document.getElementById('modal');
+        const overlay = document.getElementById('modalOverlay');
+
+        modal.innerHTML = `
+        <h2>${task.title}</h2>
+        <p><strong>Дата выполнения:</strong> ${new Date(task.date).toLocaleString()}</p>
+        <p><strong>Автор:</strong> ${task.author}</p>
+        <p><strong>Статус:</strong> ${task.status}</p>
+        <p><strong>Описание:</strong> ${task.description}</p>
+        <button onclick="closeModal()">Закрыть</button>
+    `;
+
+        overlay.style.display = 'block';
+        modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+        document.getElementById('modalOverlay').style.display = 'none';
+    }
+</script>
+
+</body>
+</html>
